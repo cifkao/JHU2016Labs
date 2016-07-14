@@ -134,8 +134,8 @@ class VarBayesGMM(object):
         ev_log_lambda = np.array([psi(ng.a) - np.log(ng.b) for ng in self.ng])
         ev_lambda = np.array([ng.a / float(ng.b) for ng in self.ng])
         
-        log_rho = np.array([ev_log_pi[k] + .5 * ev_log_lambda[k] + 
-                            .5 * (ev_lambda[k] * np.square(x - ng.mean) + 1./ng.kappa)
+        log_rho = np.array([ev_log_pi[k] + .5 * ev_log_lambda[k]
+                            -.5 * (ev_lambda[k] * np.square(x - ng.mean) + 1./ng.kappa)
                             for k, ng in enumerate(self.ng)]).T
         
         resp = np.exp((log_rho.T - logsumexp(log_rho, axis=1)).T)
@@ -148,26 +148,25 @@ class VarBayesGMM(object):
         #Sk = np.sum(Sk * resp, axis=0) / Nk
         
         Sk = np.empty_like(Nk)
-        for k, ng in enumerate(self.ng):
+        for k in range(len(Sk)):
             Sk[k] = np.sum(resp[:, k] * np.square(x - xk_bar[k])) / Nk[k]
         
-        #print(resp)
-        #print(Sk)
+        # ev_llh = len(x) * np.sum(ev_log_pi + .5 * (ev_log_lambda - np.log(2*np.pi)))
+        # for k, ng in enumerate(self.ng):
+        #     ev_llh -= .5 * np.sum(ev_lambda[k] * np.square(x - ng.mean) + 1./ng.kappa)
         
-        ev_llh = len(x) * np.sum(ev_log_pi + .5 * (ev_log_lambda - np.log(2*np.pi)))
-        for k, ng in enumerate(self.ng):
-            ev_llh -= .5 * np.sum(ev_lambda[k] * np.square(x - ng.mean) + 1./ng.kappa)
+        ev_llh = logsumexp(log_rho, axis=1).sum()
         
         return resp, ev_llh, (Nk, xk_bar, Sk)
     
     def MStep(self, x, stats):
         Nk, xk_bar, Sk = stats
         
-        #print(Nk, xk_bar, Sk)
+        #print Nk, xk_bar, Sk
         
         self.dir = self.dir0.posterior(Nk)
         for k in range(len(self.ng)):
-            #print(k, self.ng[k].a, self.ng[k].b, self.ng[k].mean, self.ng[k].kappa)
+            #print k, self.ng[k].a, self.ng[k].b, self.ng[k].mean, self.ng[k].kappa
             self.ng[k] = self.ng0.posterior(Nk[k], xk_bar[k], Sk[k])
             
     def KLPosteriorPrior(self):
